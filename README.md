@@ -130,3 +130,7 @@ ORDER BY usage_count DESC, total_sales DESC;
 ### Limitations
 - The Item column had about 9% missing values, which is higher than the usual 5% threshold where dropping rows would have been acceptable. Removing them would have meant losing too much information and risked skewing the analysis. To keep the dataset intact, I filled those gaps using the mode (the most common item) within each category. The downside is that this can over‑represent popular items and reduce the variety in the data.
 - For the numerical columns — Price Per Unit, Quantity, and Total Spent — I chose to fill missing values with the mean because the data appeared to be normally distributed. Using the mean keeps the averages consistent and avoids biasing the overall results. However, this approach can be sensitive to outliers. If the data had been skewed, the median would have been a safer choice.
+
+### References 
+
+[Dashboard](https://app.powerbi.com/links/wosuKwLsqZ?ctid=cc6148eb-d356-4f38-900f-3a4d62b954c8&pbi_source=linkShare)
