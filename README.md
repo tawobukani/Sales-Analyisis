@@ -1,5 +1,5 @@
 # Sales-Analyisis
-A professional repository for sales analysis. Includes scripts, queries, statistical modeling and interactive dashboards designed to evaluate performance, identify trends, and support data-driven business decisions.
+A professional repository for sales analysis. Includes scripts, queries, and interactive dashboards designed to evaluate performance, identify trends, and support data-driven business decisions.
 
 ### Data Source
 Primary dataset for this analysis is "retail_store_sales.csv" file containing detailed information sales.
@@ -8,7 +8,6 @@ Primary dataset for this analysis is "retail_store_sales.csv" file containing de
 ### Tools
 - Python -Data cleaning
 - SQL - Data Analysis
-- R - Statistical Analysis
 - Power BI - Creating reports
 
 ### Data cleaning
@@ -24,6 +23,7 @@ import pandas as pd
 df = pd.read_csv("retail_store_sales.csv")
 df.head()
 df.tail()
+df.shape
 df.info()
 df.describe()
 df.describe(include="all")df.isnull().sum()
@@ -33,6 +33,8 @@ df["Quantity"] = df["Quantity"].fillna(df["Quantity"].mean())
 df["Total Spent"] = df["Total Spent"].fillna(df["Price Per Unit"] * df["Quantity"])
 df["Discount Applied"] = df["Discount Applied"].fillna(df["Total Spent"] < df["Price Per Unit"] * df["Quantity"])
 df["Transaction Date"] = pd.to_datetime(df["Transaction Date"])
+df["month_name"] = df["Transaction Date"].dt.strftime("%B")
+df = df.rename(columns={"Location": "shopping"})
 df.columns = df.columns.str.lower()
 df.columns = df.columns.str.replace(" ","_")
 df.head()
@@ -40,60 +42,91 @@ df.to_csv("retail_store_sales_cleaned.csv", index=False)
 ```
 
 ### Expainatory Data Analysis 
-1. What kinds of products are really driving our sales and profits?
-2. Who are our biggest spenders, and how do their shopping habits change over time?
-3. How do our online sales stack up against what’s happening in-store?
+1. Which category are really driving our sales and profits?
+2. Who are our biggest 3 customers, and how do their shopping habits change over time?
+3. Which payment method is used the most and how much spent?
 4. When do people buy the most — are there clear monthly or seasonal peaks?
 5. What happens when we run discounts — do they boost sales volume without hurting revenue too much?
-6. On average, how much do customers spend in a single transaction, and does it vary by category ?  
-
+6. Which items sell the most by quantity?
+7. Which shopping chanell is currently the most utilized by consumers?
 
 ### Data Analysis
 import retail_store_sales.csv to sql and save as sales
 ```sql
-SELECT category, SUM(total_spent) AS total_revenue
+SELECT category, round(SUM(total_spent),2) AS total_sales,
+round(SUM(total_spent - (price_per_unit * quantity)),2)AS approx_profit
 FROM sales
 GROUP BY category
-ORDER BY total_revenue DESC;
+ORDER BY total_sales DESC
+limit 3;
 ```
 
 ```sql
-SELECT customer_id, strftime('%Y-%m', transaction_date) AS month, SUM(total_spent) AS monthly_spend
+SELECT customer_id,month_name, round(SUM(total_spent),2) AS monthly_spent
 FROM sales
-GROUP BY customer_id,month
-ORDER BY monthly_spend DESC
-LIMIT 5;
+GROUP BY customer_id, month_name
+ORDER BY monthly_spent desc
+limit 3;
 ```
 
 ```sql
-select payment_method , sum(total_spent) as total_spend , count(*) as number_of_transaction,
-       ROUND(SUM(total_spent) * 100.0 / (SELECT SUM(total_spent) FROM sales), 2) AS revenue_pct
-from sales
-group by payment_method
-order by payment_method desc;
-```
-
-```sql
-SELECT strftime('%Y-%m', transaction_date) AS month,SUM(total_spent) AS monthly_revenue,COUNT(*) AS transaction_count,
+SELECT payment_method,COUNT(*) AS usage_count,round(SUM(total_spent),2) AS total_spend
 FROM sales
-GROUP BY month
-ORDER BY monthly_revenue DESC;
+GROUP BY payment_method
+ORDER BY usage_count DESC, total_spend DESC;
 ```
 
 ```sql
-SELECT (CASE WHEN discount_applied = true THEN 'yes' ELSE 'no' END) AS discount_applied,
-       COUNT(*) AS transaction_count,
-       SUM(total_spent) AS total_revenue,
-       round(AVG(total_spent),2) AS avg_spend
+SELECT month_name, round(SUM(total_spent),2) AS total_sales, round(SUM(quantity),0) AS total_units
+FROM sales
+GROUP BY month_name
+ORDER BY total_sales DESC;
+```
+
+```sql
+SELECT (CASE WHEN discount_applied = TRUE THEN 'yes' ELSE 'no' END) AS discount_applied,
+COUNT(*) AS transaction_count,round(SUM(total_spent),2) AS total_revenue,ROUND(AVG(total_spent), 2) AS avg_spend
 FROM sales
 GROUP BY discount_applied
-ORDER BY total_revenue DESC;
+order by total_revenue desc;
 ```
 
 ```sql
-SELECT category,ROUND(AVG(total_spent), 2) AS avg_spend
+SELECT item,round(SUM(quantity),2) AS total_units,round(SUM(total_spent),2) AS total_revenue
 FROM sales
-GROUP BY category
-ORDER BY avg_spend DESC;
+GROUP BY item, category
+ORDER BY total_units DESC
+limit 5;
 ```
 
+```sql
+SELECT shopping,COUNT(*) AS usage_count,round(SUM(total_spent),2) AS total_sales,
+ROUND(AVG(total_spent), 2) AS avg_transaction_value
+FROM sales
+GROUP BY shopping
+ORDER BY usage_count DESC, total_sales DESC;
+```
+
+
+### Results
+1. Butchers and Electric Household Essentials are the biggest revenue drivers. Beverages also contribute strongly, but mostly through high volume, lower value purchases.
+2. Our top customers 3 CUST_03, CUST_12, and CUST_08 show peak activity in January, suggesting strong seasonal loyalty and a surge in spending at the start of the year.
+3. Cash is still the most used, slightly ahead of Digital Wallet and Credit Card. However, the gap is small, showing that customers are comfortable with multiple payment options.
+4. January is our strongest month, followed by July and December. These peaks align with holiday seasons and mid-year shopping cycles.
+5. Discounts clearly boost transaction counts and units sold. Importantly, average spend per transaction remains almost identical to non-discounted sales — meaning discounts increase volume without eroding revenue.
+6. Food, Milk, and Patisserie items dominate in terms of quantity sold. These staples are essential for driving basket size and repeat purchases.
+7. Online shopping slightly outpaces In-store in both transactions and revenue. Consumers are leaning toward digital channels, though physical stores remain important.
+
+### Recommendations
+1. Double down on Butchers and Household Essentials: These categories are our revenue engines. Marketing and promotions should highlight them.
+2. Protect and grow staples (Food, Milk, Patisserie): These items drive volume. Ensuring availability and competitive pricing will keep customers coming back.
+3. Engage top customers in January: Loyalty programs or personalized offers for CUST_03, CUST_12, and CUST_08 can lock in their seasonal spending.
+4. Encourage Digital Wallet adoption: It’s nearly tied with Cash and Credit Card, but aligns better with the growth of online shopping. Incentives could accelerate adoption.
+5. Plan around seasonal peaks: Stock up and run campaigns in January, July, and December to maximize demand.
+6. Use discounts strategically: Since they boost volume without hurting revenue, apply them to high-volume categories where they’ll have the biggest impact.
+7. Invest in Online experience: With digital channels slightly ahead, improving delivery, promotions, and user experience will strengthen this advantage.
+
+
+### Limitations
+- The Item column had about 9% missing values, which is higher than the usual 5% threshold where dropping rows would have been acceptable. Removing them would have meant losing too much information and risked skewing the analysis. To keep the dataset intact, I filled those gaps using the mode (the most common item) within each category. The downside is that this can over‑represent popular items and reduce the variety in the data.
+- For the numerical columns — Price Per Unit, Quantity, and Total Spent — I chose to fill missing values with the mean because the data appeared to be normally distributed. Using the mean keeps the averages consistent and avoids biasing the overall results. However, this approach can be sensitive to outliers. If the data had been skewed, the median would have been a safer choice.
